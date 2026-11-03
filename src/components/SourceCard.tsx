@@ -159,7 +159,14 @@ export function SourceCard({ state, set, update, refVideo, onRefVideo }: Props) 
         </div>
       </Row>
 
-      <Row label="Platform">
+      <Row
+        label="Platform"
+        info={{
+          gif: 'product-theme.gif',
+          alt: 'The same scene in Galleries light theme and Core app dark theme',
+          text: 'The product picks the theme. Galleries renders in light tokens and the Core app in dark.',
+        }}
+      >
         <div className="field">
           <Globe className="i" />
           <input

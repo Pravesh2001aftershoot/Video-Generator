@@ -95,7 +95,14 @@ export function OutputCard({ state, set, update, brief: b }: Props) {
         <Warn>{capMsg}</Warn>
       </Row>
 
-      <Row label="Aspect">
+      <Row
+        label="Aspect"
+        info={{
+          gif: 'aspect-ratio.gif',
+          alt: 'The same scene reframed at 16:9, 9:16, 1:1, 4:5 and 3:2',
+          text: 'Sets the render size, with a 1920 px long side or 1440 x 1440 for a square. Landscape puts content side by side and portrait stacks it.',
+        }}
+      >
         <RadioChips<string>
           name="aspect"
           label="Aspect ratio"
@@ -120,7 +127,14 @@ export function OutputCard({ state, set, update, brief: b }: Props) {
         )}
       </Row>
 
-      <Row label="Frame rate">
+      <Row
+        label="Frame rate"
+        info={{
+          gif: 'frame-rate.gif',
+          alt: '30 fps and 50 fps side by side at 0.4x speed',
+          text: '50 fps moves more smoothly. 30 fps leaves more bits for each frame when there is a size cap.',
+        }}
+      >
         <RadioChips<FpsPick>
           name="fps"
           label="Frame rate"
@@ -169,7 +183,14 @@ export function OutputCard({ state, set, update, brief: b }: Props) {
         </p>
       </Row>
 
-      <Row label="Playback">
+      <Row
+        label="Playback"
+        info={{
+          gif: 'playback.gif',
+          alt: 'A seamless loop next to a video that plays once and stops',
+          text: 'A loop ends exactly where it started. Plays once ends on a settled state held for at least one bar.',
+        }}
+      >
         <RadioChips<'yes' | 'no'>
           name="loop"
           label="Loop"
