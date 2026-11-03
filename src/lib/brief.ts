@@ -1,4 +1,5 @@
 import { EXAMPLES, RefExample, VIDEO_TYPES, VideoType, absoluteMediaUrl, exampleById } from './references';
+import { tokenLines } from './tokens';
 
 export type Product = 'galleries' | 'core' | 'other';
 export type RunIn = 'task' | 'repo';
@@ -260,11 +261,11 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   );
   if (product === 'galleries')
     L.push(
-      '- Theme: this is Aftershoot Galleries, so use the light theme tokens. If the page loads dark, switch it to light before capture, and sample colours from the light screenshots.',
+      '- Theme: this is Aftershoot Galleries, so use the light theme tokens listed in <theme_tokens> below. If the page loads dark, switch it to light before capture.',
     );
   else if (product === 'core')
     L.push(
-      '- Theme: this is the core Aftershoot app, so use the dark theme tokens. If the page loads light, switch it to dark before capture, and sample colours from the dark screenshots.',
+      '- Theme: this is the core Aftershoot app, so use the dark theme tokens listed in <theme_tokens> below. If the page loads light, switch it to dark before capture.',
     );
   else
     L.push(
@@ -274,6 +275,13 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
     '- Icons: Phosphor only (@phosphor-icons/core SVGs, the weight that matches the product, regular by default). Replace any other icon set with its closest Phosphor equivalent. Never hand-draw icons.',
   );
   L.push('</guardrails>', '');
+
+  const tokenTheme = product === 'galleries' || product === 'core' ? product : null;
+  if (tokenTheme) {
+    L.push(`<theme_tokens theme="${tokenTheme === 'galleries' ? 'light' : 'dark'}">`);
+    tokenLines(tokenTheme).forEach((line) => L.push(line));
+    L.push('</theme_tokens>', '');
+  }
 
   L.push('<direction>');
   L.push(
@@ -311,7 +319,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   let n = 1;
   if (repo)
     L.push(
-      `${n++}. Codebase. You are inside the product's repository. Read the README and package scripts, then start the app locally (or its Storybook, if it has one) at 1440 px wide${url ? ` — it should come up at ${url}` : ''}. Find the theme token files and use the ${product === 'galleries' ? 'light' : 'dark'} tokens from source as the colour truth, take copy from the source or i18n strings, and reuse the real components. Do all video work in a new motion/ folder at the repo root, add it to .git/info/exclude, and never commit or change product code.`,
+      `${n++}. Codebase. You are inside the product's repository. Read the README and package scripts, then start the app locally (or its Storybook, if it has one) at 1440 px wide${url ? ` — it should come up at ${url}` : ''}. Find the theme token files (libs/ds-theme or wherever --ui-* variables are defined) and use the ${product === 'galleries' ? 'light' : 'dark'} tokens from source as the colour truth${tokenTheme ? '; if they differ from <theme_tokens>, source wins and you note the difference in the report' : ''}, take copy from the source or i18n strings, and reuse the real components. Do all video work in a new motion/ folder at the repo root, add it to .git/info/exclude, and never commit or change product code.`,
     );
   L.push(
     `${n++}. Setup. In ${repo ? 'motion/' : 'this folder'}, check for Node with Playwright and Chromium, Python 3 with numpy and scipy, and ffmpeg${fmt.ext === 'json' ? ', plus lottie-web for checking' : ''}. Install what is missing, plus Geist and @phosphor-icons/core.`,
@@ -320,7 +328,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
     `${n++}. Reference. Probe the reference video with ffprobe (size, fps, duration). Extract frames at 4 fps into ref-frames/ and build ref-contact-sheet.png. Write REFERENCE.md: how long each state holds, how transitions move, cursor speed and style, camera moves${audioSrc === 'reference' && fmt.audio ? ', and extract its audio to song.wav with ffmpeg -vn for the Song step' : ''}.`,
   );
   L.push(
-    `${n++}. Capture. Open the ${repo ? 'locally running app' : 'site'} in Playwright at 1440 px wide${user || pass ? ' and sign in with the login above first (do not screenshot the login form)' : ''}. Scroll to the bottom in steps first, because some sections only render once they are scrolled into view. Screenshot every section and every state of every interactive part: each tab panel, toggle, accordion and slider. Copy all text verbatim into copy.json. ${repo ? 'Check sampled colours against the token files and prefer the tokens when they differ.' : 'Sample colours from screenshot pixels, not from CSS variables.'} Note which icons appear so you can map them to Phosphor. Write INVENTORY.md with each component's specs, real copy, what it does when touched, and how one shape could become it. Flag any number that looks like sample or placeholder data and leave it out.`,
+    `${n++}. Capture. Open the ${repo ? 'locally running app' : 'site'} in Playwright at 1440 px wide${user || pass ? ' and sign in with the login above first (do not screenshot the login form)' : ''}. Scroll to the bottom in steps first, because some sections only render once they are scrolled into view. Screenshot every section and every state of every interactive part: each tab panel, toggle, accordion and slider. Copy all text verbatim into copy.json. ${repo ? 'Check sampled colours against the token files and prefer the tokens when they differ.' : tokenTheme ? 'Sample colours from screenshot pixels, then map each one to its token in <theme_tokens> and record the token name, not the raw value.' : 'Sample colours from screenshot pixels, not from CSS variables.'} Note which icons appear so you can map them to Phosphor. Write INVENTORY.md with each component's specs, real copy, what it does when touched, and how one shape could become it. Flag any number that looks like sample or placeholder data and leave it out.`,
   );
   const stateCount = dur <= 10 ? '5 to 7' : dur <= 20 ? '8 to 12' : '12 to 18';
   L.push(
@@ -345,12 +353,18 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   L.push(
     `   - The camera zooms and pans per state so any text meant to be read is at least ${Math.round((30 * Math.min(numW, numH)) / 1440)} px tall in the frame.`,
   );
-  L.push('   - If the site has video worth showing, pre-extract its frames with ffmpeg, decode them to ImageBitmaps before READY, and draw frame floor((t - start) * fps) into a canvas, on a light background.');
+  L.push(
+    `   - If the site has video worth showing, pre-extract its frames with ffmpeg, decode them to ImageBitmaps before READY, and draw frame floor((t - start) * fps) into a canvas, on ${tokenTheme ? 'the --ui-surface-0 background' : 'a light background'}.`,
+  );
   L.push('   - Icons are inline Phosphor SVGs; all text is Geist.');
+  if (tokenTheme)
+    L.push(
+      '   - Declare every colour from <theme_tokens> as a CSS variable on :root with its token name, and style everything through var(--ui-...). No raw hex values in scene.html.',
+    );
   L.push('   - Expose window.seek, window.READY and window.SOUNDS (every click, key and tick with its time).');
   L.push('   - Never put will-change on anything the camera scales.');
   L.push(
-    `${n++}. Check. Render one still per beat into contact-sheet.png, plus a still in the middle of every transition, and read every one: off the grid, cramped, clipped, too small, cursor off its target, wrong font, wrong theme, non-Phosphor icons. Compare its rhythm against ref-contact-sheet.png. Log every frame's cursor, shape edges and dragged elements, and look for acceleration spikes and any gap between the cursor and what it drags. ${loop ? 'The jump from the last frame to the first must be no bigger than a normal frame step.' : 'The last bar must be still.'} There must be no console errors. Fix and repeat until all of this is clean.`,
+    `${n++}. Check. Render one still per beat into contact-sheet.png, plus a still in the middle of every transition, and read every one: off the grid, cramped, clipped, too small, cursor off its target, wrong font, wrong theme, ${tokenTheme ? 'any colour not in <theme_tokens>, ' : ''}non-Phosphor icons. Compare its rhythm against ref-contact-sheet.png. Log every frame's cursor, shape edges and dragged elements, and look for acceleration spikes and any gap between the cursor and what it drags. ${loop ? 'The jump from the last frame to the first must be no bigger than a normal frame step.' : 'The last bar must be still.'} There must be no console errors. Fix and repeat until all of this is clean.`,
   );
 
   const renderBase = `Playwright with Chrome DevTools Protocol screenshots at ${W}x${H}, 4 subframes per frame centred on the frame time, piped into ffmpeg: tmix=frames=4, keep every 4th frame`;
@@ -397,7 +411,9 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   );
   L.push('<rules>');
   L.push('- Real copy, real colours and real data only. If something is missing, say so. Never invent it.');
-  L.push('- Geist, the theme tokens above and Phosphor icons are not negotiable; flag anything that cannot follow them.');
+  L.push(
+    `- Geist, ${tokenTheme ? 'the theme tokens in <theme_tokens>' : 'the theme rule above'} and Phosphor icons are not negotiable; flag anything that cannot follow them.`,
+  );
   L.push('- Never start the full render before the contact sheet is clean.');
   L.push('- If a change only works as a crossfade, find a shared element instead.');
   if (hasCap)
