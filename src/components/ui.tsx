@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Info, WarningCircle } from '@phosphor-icons/react';
+import { ArrowUpRight, Info, WarningCircle } from '@phosphor-icons/react';
 
 export function Card({ step, title, children }: { step: number; title: string; children: ReactNode }) {
   return (
@@ -14,10 +14,12 @@ export function Card({ step, title, children }: { step: number; title: string; c
 }
 
 export interface RowInfo {
-  /** GIF in public/settings/ */
-  gif: string;
+  /** GIF in public/settings/; leave out for a text-only tip */
+  gif?: string;
   alt: string;
   text: string;
+  /** optional links shown under the text, opened in a new tab */
+  links?: { label: string; href: string }[];
 }
 
 export function Row({ label, info, children }: { label: string; info?: RowInfo; children: ReactNode }) {
@@ -78,9 +80,21 @@ export function InfoTip({ label, info }: { label: string; info: RowInfo }) {
       </button>
       {show && (
         <span className="tip-pop" id={id} role="tooltip">
-          <img src={`${import.meta.env.BASE_URL}settings/${info.gif}`} alt={info.alt} width={880} height={GIF_HEIGHT[info.gif] ?? 440} />
+          {info.gif && (
+            <img src={`${import.meta.env.BASE_URL}settings/${info.gif}`} alt={info.alt} width={880} height={GIF_HEIGHT[info.gif] ?? 440} />
+          )}
           <span className="tip-text">{info.text}</span>
-          <span className="tip-note">Illustration rendered in code, not a generated video.</span>
+          {info.links && (
+            <span className="tip-links">
+              {info.links.map((l) => (
+                <a key={l.href} href={l.href} target="_blank" rel="noreferrer">
+                  {l.label}
+                  <ArrowUpRight className="i" aria-hidden />
+                </a>
+              ))}
+            </span>
+          )}
+          {info.gif && <span className="tip-note">Illustration rendered in code, not a generated video.</span>}
         </span>
       )}
     </span>

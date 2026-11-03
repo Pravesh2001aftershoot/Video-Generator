@@ -1,6 +1,7 @@
 import { forwardRef, useRef, type ReactNode } from 'react';
-import { CaretDown, CheckCircle, Circle, Copy, DownloadSimple, Globe, Sparkle, TerminalWindow } from '@phosphor-icons/react';
+import { CaretDown, CheckCircle, Circle, Copy, Cpu, DownloadSimple, Globe, Sparkle, TerminalWindow } from '@phosphor-icons/react';
 import type { Brief } from '../lib/brief';
+import { type Estimate, fmtTokens } from '../lib/estimate';
 
 export interface Check {
   ok: boolean;
@@ -9,6 +10,7 @@ export interface Check {
 
 interface Props {
   brief: Brief;
+  estimate: Estimate;
   checks: Check[];
   onCopy: (fallback: () => void) => void;
   onDownload: () => void;
@@ -43,7 +45,7 @@ export const countLabel = (checks: Check[]) => {
   return done === checks.length ? 'Ready' : `${done} of ${checks.length}`;
 };
 
-export const BriefPanel = forwardRef<HTMLDivElement, Props>(function BriefPanel({ brief: b, checks, onCopy, onDownload }, actionsRef) {
+export const BriefPanel = forwardRef<HTMLDivElement, Props>(function BriefPanel({ brief: b, estimate: e, checks, onCopy, onDownload }, actionsRef) {
   const pv = useRef<HTMLDetailsElement>(null);
   const pre = useRef<HTMLPreElement>(null);
 
@@ -92,6 +94,25 @@ export const BriefPanel = forwardRef<HTMLDivElement, Props>(function BriefPanel(
               </div>
             ))}
           </dl>
+          <section className="est" aria-label="Estimated usage">
+            <div className="est-head">
+              <h3>Estimated usage</h3>
+              <span className="count">rough guide</span>
+            </div>
+            <p className="est-num">
+              ≈ {fmtTokens(e.low)}–{fmtTokens(e.high)} <span>tokens</span>
+            </p>
+            <p className="tiny">
+              ~{fmtTokens(e.output)} output · ~{e.turns} turns · most input is cached context re-read each turn
+            </p>
+            <div className="est-model">
+              <Cpu className="i" />
+              <span>
+                Recommended: <b>{e.model}</b> · <b>{e.effort} effort</b>
+              </span>
+            </div>
+            <p className="tiny">{e.why}</p>
+          </section>
           <div className="rails">
             {['Geist', themeTok, 'Phosphor icons'].map((t) => (
               <span key={t} className="rail">

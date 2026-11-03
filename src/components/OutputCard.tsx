@@ -74,13 +74,33 @@ export function OutputCard({ state, set, update, brief: b }: Props) {
         />
       </Row>
 
-      <Row label="Render engine">
+      <Row
+        label="Render engine"
+        info={{
+          alt: '',
+          text: 'HyperFrames needs a one-time setup the first time it runs in a project. Claude checks for Node 22+ and ffmpeg, then installs HyperFrames into a motion/ folder that git ignores, so the product code is never touched. This takes a few minutes, and later videos in the same project reuse it. If the setup fails on your machine, these HyperFrames guides cover installing it by hand and fixing common errors.',
+          links: [
+            { label: 'Quickstart', href: 'https://hyperframes.heygen.com/quickstart' },
+            { label: 'Troubleshooting', href: 'https://hyperframes.heygen.com/help' },
+          ],
+        }}
+      >
         <RadioChips<Engine>
           name="engine"
           label="Render engine"
           value={state.engine}
           onChange={(v) => set('engine', v)}
-          options={(Object.keys(ENGINES) as Engine[]).map((k) => ({ value: k, label: ENGINES[k].label }))}
+          options={(Object.keys(ENGINES) as Engine[]).map((k) => ({
+            value: k,
+            label:
+              k === 'hyperframes' ? (
+                <>
+                  {ENGINES[k].label} <small className="tag">Recommended</small>
+                </>
+              ) : (
+                ENGINES[k].label
+              ),
+          }))}
         />
         <p className="tiny">
           {b.fk === 'lottie'

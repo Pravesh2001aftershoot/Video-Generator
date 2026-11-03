@@ -47,11 +47,14 @@ The product decides the theme tokens. Galleries uses light and the Core app uses
 - It runs `npx hyperframes doctor` and a 1-second draft render first. If either fails, Claude stops and reports the error instead of carrying on.
 - The scene is a HyperFrames composition driven by `registerFrameSource` calling the same pure `seek(t)`. Motion blur comes from `data-motion-blur`. MP4, WEBM and MOV render natively. GIF and WEBP render a PNG sequence that ffmpeg then encodes.
 
+If the automatic setup fails on someone's machine, they can install HyperFrames by hand with the [Quickstart](https://hyperframes.heygen.com/quickstart) and fix common errors with [Troubleshooting](https://hyperframes.heygen.com/help). The tooltip next to Render engine links to both.
+
 **Playwright + ffmpeg** is still available for a setup with no framework at all.
 
 ## Structure
 
 - `src/lib/brief.ts`: the brief state, constants, and `buildBrief()`, a pure function that produces the prompt and derived values (canvas size, fps suggestion, bitrate)
+- `src/lib/estimate.ts`: `estimateRun()`, a rough token estimate for one run of the brief (turns, output, total range) and the recommended model: Opus at Medium effort for videos, Sonnet at Medium (High when longer than 12 s or more than 4 steps) for GIF and WEBP
 - `src/components/`: `SourceCard`, `OutputCard`, `SoundCard`, `BriefPanel`, `Header`, and shared UI primitives in `ui.tsx`
 - `src/hooks/`: theme (light/dark, persisted), draft persistence (localStorage, credentials never saved), toast
 - `src/index.css`: zinc design tokens with light/dark themes and responsive breakpoints at 960px and 560px

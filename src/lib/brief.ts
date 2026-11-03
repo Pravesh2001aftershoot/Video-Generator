@@ -79,7 +79,7 @@ export const FORMATS: Record<FormatKey, { ext: string; label: string; audio: boo
 export const ENGINES: Record<Engine, { label: string; why: string }> = {
   hyperframes: {
     label: 'HyperFrames',
-    why: 'Open source (Apache 2.0), free for commercial use. Installed into its own motion/ folder, never into the product.',
+    why: 'Free and open source (Apache 2.0). One-time setup the first time it runs in a project.',
   },
   playwright: {
     label: 'Playwright + ffmpeg',
@@ -353,7 +353,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
       `   - Playwright with Chromium (for capture), Python 3 with numpy and scipy, Geist and @phosphor-icons/core${fmt.ext === 'json' ? ', plus lottie-web for checking' : ''}.`,
     );
     L.push(
-      '   - Run npx hyperframes doctor and fix what it reports. Then render a 1-second test composition with npx hyperframes render --quality draft. If that fails, stop and send me the error before doing anything else.',
+      '   - Run npx hyperframes doctor and fix what it reports. Then render a 1-second test composition with npx hyperframes render --quality draft. If that fails, check https://hyperframes.heygen.com/help for the fix; if it is still failing, stop and send me the error before doing anything else.',
     );
   } else {
     L.push(

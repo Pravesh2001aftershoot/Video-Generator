@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy } from '@phosphor-icons/react';
 import { BriefState, FORMATS, RefVideo, buildBrief } from './lib/brief';
+import { estimateRun } from './lib/estimate';
 import { useDraft } from './hooks/useDraft';
 import { useTheme } from './hooks/useTheme';
 import { useToast } from './hooks/useToast';
@@ -20,6 +21,7 @@ export default function App() {
   const update = useCallback((patch: Partial<BriefState>) => setState((s) => ({ ...s, ...patch })), [setState]);
 
   const brief = useMemo(() => buildBrief(state, refVideo), [state, refVideo]);
+  const estimate = useMemo(() => estimateRun(brief, state), [brief, state]);
 
   const checks: Check[] = [
     { ok: brief.refOk, label: 'Reference video' },
@@ -72,7 +74,7 @@ export default function App() {
             <OutputCard state={state} set={set} update={update} brief={brief} />
             <SoundCard state={state} set={set} />
           </form>
-          <BriefPanel ref={actionsRef} brief={brief} checks={checks} onCopy={copy} onDownload={download} />
+          <BriefPanel ref={actionsRef} brief={brief} estimate={estimate} checks={checks} onCopy={copy} onDownload={download} />
         </div>
       </div>
 
