@@ -6,6 +6,7 @@ export type RunIn = 'task' | 'repo';
 export type FormatKey = 'mp4' | 'mov' | 'webm' | 'webp' | 'gif' | 'lottie';
 export type AudioSrc = 'reference' | 'custom' | 'none';
 export type FpsPick = 'auto' | '30' | '50';
+export type Engine = 'hyperframes' | 'playwright';
 
 export interface BriefState {
   videoType: VideoType;
@@ -18,6 +19,8 @@ export interface BriefState {
   product: Product;
   runin: RunIn;
   format: FormatKey;
+  /** what turns the scene into frames: HyperFrames (default) or raw Playwright + ffmpeg */
+  engine: Engine;
   sizeCap: string;
   aspect: string; // '16:9' | ... | 'ref' | 'custom'
   customAspect: string;
@@ -49,6 +52,7 @@ export const DEFAULT_STATE: BriefState = {
   product: 'galleries',
   runin: 'task',
   format: 'mp4',
+  engine: 'hyperframes',
   sizeCap: '',
   aspect: '16:9',
   customAspect: '',
@@ -70,6 +74,17 @@ export const FORMATS: Record<FormatKey, { ext: string; label: string; audio: boo
   webp: { ext: 'webp', label: 'Animated WEBP', audio: false },
   gif: { ext: 'gif', label: 'GIF', audio: false },
   lottie: { ext: 'json', label: 'Lottie JSON', audio: false },
+};
+
+export const ENGINES: Record<Engine, { label: string; why: string }> = {
+  hyperframes: {
+    label: 'HyperFrames',
+    why: 'Open source (Apache 2.0), free for commercial use. Installed into its own motion/ folder, never into the product.',
+  },
+  playwright: {
+    label: 'Playwright + ffmpeg',
+    why: 'No framework: Claude screenshots each frame itself and pipes them into ffmpeg.',
+  },
 };
 
 export interface UseCase {
@@ -143,6 +158,7 @@ export interface Brief {
   plan: boolean;
   fmt: (typeof FORMATS)[FormatKey];
   fk: FormatKey;
+  engine: Engine;
   audioSrc: AudioSrc;
   clicks: boolean;
   hasMusic: boolean;
@@ -169,6 +185,8 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   const plan = s.plan;
   const fk = s.format;
   const fmt = FORMATS[fk];
+  const engine = s.engine;
+  const hf = engine === 'hyperframes';
   const audioSrc = s.audio;
   const clicks = s.clicks && fmt.audio;
   const hasMusic = fmt.audio && audioSrc !== 'none';
@@ -321,9 +339,27 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
     L.push(
       `${n++}. Codebase. You are inside the product's repository. Read the README and package scripts, then start the app locally (or its Storybook, if it has one) at 1440 px wide${url ? ` — it should come up at ${url}` : ''}. Find the theme token files (libs/ds-theme or wherever --ui-* variables are defined) and use the ${product === 'galleries' ? 'light' : 'dark'} tokens from source as the colour truth${tokenTheme ? '; if they differ from <theme_tokens>, source wins and you note the difference in the report' : ''}, take copy from the source or i18n strings, and reuse the real components. Do all video work in a new motion/ folder at the repo root, add it to .git/info/exclude, and never commit or change product code.`,
     );
-  L.push(
-    `${n++}. Setup. In ${repo ? 'motion/' : 'this folder'}, check for Node with Playwright and Chromium, Python 3 with numpy and scipy, and ffmpeg${fmt.ext === 'json' ? ', plus lottie-web for checking' : ''}. Install what is missing, plus Geist and @phosphor-icons/core.`,
-  );
+  const where = repo ? 'motion/' : 'this folder';
+  if (hf) {
+    L.push(
+      `${n++}. Setup. HyperFrames (the hyperframes npm package, Apache 2.0) is the render engine. It lives only in ${where}: never add it, or anything else from this step, to the product's package.json or lockfile. Check each of these and install only what is missing:`,
+    );
+    L.push('   - Node 22 or newer (node -v). If it is older, stop and tell me; do not change the system Node.');
+    L.push('   - ffmpeg and ffprobe on the PATH.');
+    L.push(
+      `   - A package.json in ${where} with hyperframes at an exact version. If there is none, run npm init -y there and npm install --save-exact hyperframes. Always call it through npx from ${where} so the pinned version runs.`,
+    );
+    L.push(
+      `   - Playwright with Chromium (for capture), Python 3 with numpy and scipy, Geist and @phosphor-icons/core${fmt.ext === 'json' ? ', plus lottie-web for checking' : ''}.`,
+    );
+    L.push(
+      '   - Run npx hyperframes doctor and fix what it reports. Then render a 1-second test composition with npx hyperframes render --quality draft. If that fails, stop and send me the error before doing anything else.',
+    );
+  } else {
+    L.push(
+      `${n++}. Setup. In ${where}, check for Node with Playwright and Chromium, Python 3 with numpy and scipy, and ffmpeg${fmt.ext === 'json' ? ', plus lottie-web for checking' : ''}. Install what is missing, plus Geist and @phosphor-icons/core.${repo ? " Never add any of it to the product's package.json or lockfile." : ''}`,
+    );
+  }
   L.push(
     `${n++}. Reference. Probe the reference video with ffprobe (size, fps, duration). Extract frames at 4 fps into ref-frames/ and build ref-contact-sheet.png. Write REFERENCE.md: how long each state holds, how transitions move, cursor speed and style, camera moves${audioSrc === 'reference' && fmt.audio ? ', and extract its audio to song.wav with ffmpeg -vn for the Song step' : ''}.`,
   );
@@ -339,7 +375,20 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
       `${n++}. Song. Measure ${audioSrc === 'reference' ? 'song.wav' : 'the song'} with numpy: tempo by autocorrelation of an onset envelope, downbeats by low-band energy, and where the kick starts (10 percent of its peak). Trim it to ${dur} seconds so the kick onsets land on the video's beats, starting on a downbeat${loop ? ', with a short crossfade so the audio loops cleanly' : ', with a 300 ms fade at the end'}. If the tempo is more than 1 BPM away from 120, tell me before you go on.`,
     );
   }
-  L.push(`${n++}. Engine. Build scene.html at ${W}x${H}:`);
+  L.push(
+    hf
+      ? `${n++}. Engine. Build the scene as a HyperFrames composition in index.html at ${W}x${H}:`
+      : `${n++}. Engine. Build scene.html at ${W}x${H}:`,
+  );
+  if (hf) {
+    L.push(
+      `   - Root: <div id="root" data-composition-id="motion" data-width="${W}" data-height="${H}" data-fps="${fps}" data-duration="${dur}" data-no-timeline data-motion-blur="on" data-motion-blur-events="on" data-motion-blur-samples="4">. Inside it, one host element for the whole scene with data-start="0" data-duration="${dur}" data-track-index="0" data-no-timeline.`,
+    );
+    L.push(
+      '   - Drive it with a frame source, not GSAP: window.__hyperframes.registerFrameSource({ element: host, ready, render: (t) => seek(t) }), where ready resolves once fonts and every image and bitmap are loaded. HyperFrames owns the clock, so never start your own.',
+    );
+    L.push('   - No <audio> or audible <video> in the composition. Sound is built and mastered separately in the Sound step.');
+  }
   L.push('   - seek(t) computes every style from the time t alone. No CSS transitions, no CSS animations, no timers, no state carried between frames.');
   L.push(
     `   - Springs are closed-form step responses. A value that changes target N times is the sum of N step responses;${loop ? ` for a loop of length ${dur} s, also add each step at t + ${dur}, so the last frame matches the first in position and velocity.` : ' the final state must be fully settled before the last frame.'} Damping 0.85 to 0.9.`,
@@ -364,28 +413,52 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   L.push('   - Expose window.seek, window.READY and window.SOUNDS (every click, key and tick with its time).');
   L.push('   - Never put will-change on anything the camera scales.');
   L.push(
-    `${n++}. Check. Render one still per beat into contact-sheet.png, plus a still in the middle of every transition, and read every one: off the grid, cramped, clipped, too small, cursor off its target, wrong font, wrong theme, ${tokenTheme ? 'any colour not in <theme_tokens>, ' : ''}non-Phosphor icons. Compare its rhythm against ref-contact-sheet.png. Log every frame's cursor, shape edges and dragged elements, and look for acceleration spikes and any gap between the cursor and what it drags. ${loop ? 'The jump from the last frame to the first must be no bigger than a normal frame step.' : 'The last bar must be still.'} There must be no console errors. Fix and repeat until all of this is clean.`,
+    `${n++}. Check. ${hf ? 'Run npx hyperframes lint and npx hyperframes check --strict and fix every error and warning. Then render' : 'Render'} one still per beat into contact-sheet.png, plus a still in the middle of every transition, and read every one: off the grid, cramped, clipped, too small, cursor off its target, wrong font, wrong theme, ${tokenTheme ? 'any colour not in <theme_tokens>, ' : ''}non-Phosphor icons. Compare its rhythm against ref-contact-sheet.png. Log every frame's cursor, shape edges and dragged elements, and look for acceleration spikes and any gap between the cursor and what it drags. ${loop ? 'The jump from the last frame to the first must be no bigger than a normal frame step.' : 'The last bar must be still.'} There must be no console errors. Fix and repeat until all of this is clean.`,
   );
 
   const renderBase = `Playwright with Chrome DevTools Protocol screenshots at ${W}x${H}, 4 subframes per frame centred on the frame time, piped into ffmpeg: tmix=frames=4, keep every 4th frame`;
+  const hfRender = (f: string) => `npx hyperframes render --format ${f} --fps ${fps}`;
+  const frameBase = hf
+    ? `${hfRender('png-sequence')} --quality high -o frames/`
+    : renderBase;
   const k = vKbps ?? 0;
-  const R: Record<FormatKey, string> = {
-    mp4: hasCap
-      ? `${renderBase}, H.264 at ${fps} fps, two-pass at about ${k} kbps (-b:v ${k}k -maxrate ${Math.round(k * 1.5)}k -bufsize ${k * 2}k, -preset slow), yuv420p, -movflags +faststart. The file must come in under ${cap} MB; if it misses, ${fps > 30 ? 'drop to 30 fps before lowering the bitrate, and ' : ''}lower the bitrate before the resolution.`
-      : `${renderBase}, H.264 at ${fps} fps, crf 12, yuv420p, -movflags +faststart.`,
-    mov: hasCap
-      ? `${renderBase}. ProRes cannot meet a ${cap} MB cap, so encode H.264 inside the .mov instead: ${fps} fps, two-pass at about ${k} kbps, yuv420p. Tell me in the report that ProRes was skipped for size.`
-      : `${renderBase}, ProRes 422 HQ at ${fps} fps (prores_ks -profile:v 3, yuv422p10le) in a .mov container.`,
-    webm: hasCap
-      ? `${renderBase}, VP9 at ${fps} fps, two-pass at about ${k} kbps (libvpx-vp9 -b:v ${k}k -row-mt 1), yuv420p. The file must come in under ${cap} MB; if it misses, ${fps > 30 ? 'drop to 30 fps before lowering the bitrate' : 'lower the bitrate'}.`
-      : `${renderBase}, VP9 at ${fps} fps (libvpx-vp9 -crf 18 -b:v 0 -row-mt 1), yuv420p.`,
-    webp: `${renderBase}, then encode an animated WebP at ${fps} fps with libwebp_anim (-quality 90 -compression_level 6 -loop ${loop ? 0 : 1}). Keep it under ${hasCap ? cap : 15} MB. If it is over, step down in this order until it fits: ${lower
-      .slice(0, 2)
-      .map((x) => x + ' fps')
-      .join(', then ')}, quality 80, then scale to 80%, then quality 70. Keep text at least 24 px tall after any scaling.`,
-    gif: `${renderBase}, then encode a GIF with a two-pass palette (palettegen stats_mode=diff, paletteuse dither=sierra2_4a:diff_mode=rectangle), -loop ${loop ? 0 : -1}. Keep it under ${hasCap ? cap : 15} MB. Encode at ${fps} fps. ${hasCap && cap <= 3 ? `A ${cap} MB GIF is tight: start at ${Math.min(numW, 960)} px on the long side with max_colors=128; the flat UI colours will compress well. ` : ''}If it is over, step down in this order until it fits: ${lower.map((x) => x + ' fps').join(', then ')}, then max_colors 96, then scale to 80%, then 64 colours. Keep text at least 24 px tall after any scaling, and run gifsicle -O3 --lossy=30 as a last pass.`,
-    lottie: `Lottie is keyframes, not frames. Sample every animated property from seek(t) at ${fps} fps and write ${out} in the Lottie (bodymovin 5.x) schema at ${W}x${H}, fr ${fps}, ${dur * fps} frames, ${loop ? 'looping' : 'playing once'}: one shape layer per morphing element with its size, radius, colour, position, opacity and blur keyframed; Phosphor icons as shape layers from their SVG paths; text converted to shapes from Geist outlines so no font is needed at playback. Simplify keyframes where values are linear within 0.5 px${hasCap ? `, and keep the JSON under ${cap} MB (strip unused layers, round numbers to 2 decimals, then thin keyframes to ${fps > 30 ? 30 : 24} fps if needed)` : ''}. Then render it with lottie-web in Playwright and compare a still per beat against contact-sheet.png; fix any drift.`,
-  };
+  const webpTail = `then encode an animated WebP at ${fps} fps with libwebp_anim (-quality 90 -compression_level 6 -loop ${loop ? 0 : 1}). Keep it under ${hasCap ? cap : 15} MB. If it is over, step down in this order until it fits: ${lower
+    .slice(0, 2)
+    .map((x) => x + ' fps')
+    .join(', then ')}, quality 80, then scale to 80%, then quality 70. Keep text at least 24 px tall after any scaling.`;
+  const gifTail = `then encode a GIF with a two-pass palette (palettegen stats_mode=diff, paletteuse dither=sierra2_4a:diff_mode=rectangle), -loop ${loop ? 0 : -1}. Keep it under ${hasCap ? cap : 15} MB. Encode at ${fps} fps. ${hasCap && cap <= 3 ? `A ${cap} MB GIF is tight: start at ${Math.min(numW, 960)} px on the long side with max_colors=128; the flat UI colours will compress well. ` : ''}If it is over, step down in this order until it fits: ${lower.map((x) => x + ' fps').join(', then ')}, then max_colors 96, then scale to 80%, then 64 colours. Keep text at least 24 px tall after any scaling, and run gifsicle -O3 --lossy=30 as a last pass.`;
+  const lottieText = `Lottie is keyframes, not frames. Sample every animated property from seek(t) at ${fps} fps and write ${out} in the Lottie (bodymovin 5.x) schema at ${W}x${H}, fr ${fps}, ${dur * fps} frames, ${loop ? 'looping' : 'playing once'}: one shape layer per morphing element with its size, radius, colour, position, opacity and blur keyframed; Phosphor icons as shape layers from their SVG paths; text converted to shapes from Geist outlines so no font is needed at playback. Simplify keyframes where values are linear within 0.5 px${hasCap ? `, and keep the JSON under ${cap} MB (strip unused layers, round numbers to 2 decimals, then thin keyframes to ${fps > 30 ? 30 : 24} fps if needed)` : ''}. Then render it with lottie-web in Playwright and compare a still per beat against contact-sheet.png; fix any drift.`;
+  const capRetry = (beforeRes: boolean) =>
+    `The file must come in under ${cap} MB; if it misses, ${fps > 30 ? `drop to 30 fps before lowering the bitrate${beforeRes ? ', and lower the bitrate before the resolution' : ''}` : `lower the bitrate${beforeRes ? ' before the resolution' : ''}`}.`;
+  const R: Record<FormatKey, string> = hf
+    ? {
+        mp4: hasCap
+          ? `${hfRender('mp4')} --video-bitrate ${k}k -o ${out}. Confirm with ffprobe that it is H.264, yuv420p, ${fps} fps. ${capRetry(true)}`
+          : `${hfRender('mp4')} --crf 12 -o ${out}. Confirm with ffprobe that it is H.264, yuv420p, ${fps} fps.`,
+        mov: hasCap
+          ? `ProRes cannot meet a ${cap} MB cap, so ${hfRender('mp4')} --video-bitrate ${k}k, then copy that H.264 stream into ${out} with ffmpeg -c copy -movflags +faststart. Tell me in the report that ProRes was skipped for size.`
+          : `${hfRender('mov')} -o master.mov (HyperFrames writes ProRes 4444), then convert it with ffmpeg to ProRes 422 HQ (prores_ks -profile:v 3, yuv422p10le) as ${out}.`,
+        webm: hasCap
+          ? `${hfRender('webm')} --video-bitrate ${k}k -o ${out}. ${capRetry(false)}`
+          : `${hfRender('webm')} --crf 18 -o ${out}.`,
+        webp: `${frameBase}, ${webpTail}`,
+        gif: `${frameBase}, ${gifTail}`,
+        lottie: lottieText,
+      }
+    : {
+        mp4: hasCap
+          ? `${renderBase}, H.264 at ${fps} fps, two-pass at about ${k} kbps (-b:v ${k}k -maxrate ${Math.round(k * 1.5)}k -bufsize ${k * 2}k, -preset slow), yuv420p, -movflags +faststart. ${capRetry(true)}`
+          : `${renderBase}, H.264 at ${fps} fps, crf 12, yuv420p, -movflags +faststart.`,
+        mov: hasCap
+          ? `${renderBase}. ProRes cannot meet a ${cap} MB cap, so encode H.264 inside the .mov instead: ${fps} fps, two-pass at about ${k} kbps, yuv420p. Tell me in the report that ProRes was skipped for size.`
+          : `${renderBase}, ProRes 422 HQ at ${fps} fps (prores_ks -profile:v 3, yuv422p10le) in a .mov container.`,
+        webm: hasCap
+          ? `${renderBase}, VP9 at ${fps} fps, two-pass at about ${k} kbps (libvpx-vp9 -b:v ${k}k -row-mt 1), yuv420p. ${capRetry(false)}`
+          : `${renderBase}, VP9 at ${fps} fps (libvpx-vp9 -crf 18 -b:v 0 -row-mt 1), yuv420p.`,
+        webp: `${renderBase}, ${webpTail}`,
+        gif: `${renderBase}, ${gifTail}`,
+        lottie: lottieText,
+      };
   L.push(`${n++}. Render. ${R[fk]}`);
   if (withAudio) {
     const parts: string[] = [];
@@ -394,7 +467,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
         `Synthesise short, dry UI clicks with numpy (band-passed noise plus a quick sine blip), one per event in window.SOUNDS. Place each by its measured peak${hasMusic ? ', keep them well under the music' : ''}${loop ? ', and wrap them across the loop point' : ''}.`,
       );
     parts.push(
-      `Master to -14 LUFS with true peak at or below -1.5 dBTP using two-pass ffmpeg loudnorm, and mux as ${fk === 'webm' ? 'Opus' : fk === 'mov' ? 'AAC (or PCM if I ask)' : 'AAC'}.`,
+      `Master to -14 LUFS with true peak at or below -1.5 dBTP using two-pass ffmpeg loudnorm, and mux${hf ? ` into ${out} with ffmpeg -c:v copy` : ''} as ${fk === 'webm' ? 'Opus' : fk === 'mov' ? 'AAC (or PCM if I ask)' : 'AAC'}.`,
     );
     L.push(`${n++}. Sound. ${parts.join(' ')}`);
   }
@@ -406,7 +479,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   if (withAudio) reportBits.push('the loudness');
   reportBits.push('the file size', 'anything you left out and why');
   L.push(
-    `<output_format>${out} in ${repo ? 'motion/' : 'this folder'}, plus contact-sheet.png and a short report: ${reportBits.join(', ')}.</output_format>`,
+    `<output_format>${out} in ${where}, plus ${hf ? 'the index.html composition, ' : ''}contact-sheet.png and a short report: ${reportBits.join(', ')}.</output_format>`,
     '',
   );
   L.push('<rules>');
@@ -444,6 +517,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
     plan,
     fmt,
     fk,
+    engine,
     audioSrc,
     clicks,
     hasMusic,

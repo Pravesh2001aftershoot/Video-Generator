@@ -1,4 +1,4 @@
-import { Brief, BriefState, FormatKey, FpsPick, USE_CASES } from '../lib/brief';
+import { Brief, BriefState, ENGINES, Engine, FormatKey, FpsPick, USE_CASES } from '../lib/brief';
 import { Card, RadioChips, Row, Warn } from './ui';
 
 interface Props {
@@ -72,6 +72,21 @@ export function OutputCard({ state, set, update, brief: b }: Props) {
             { value: 'lottie', label: 'Lottie' },
           ]}
         />
+      </Row>
+
+      <Row label="Render engine">
+        <RadioChips<Engine>
+          name="engine"
+          label="Render engine"
+          value={state.engine}
+          onChange={(v) => set('engine', v)}
+          options={(Object.keys(ENGINES) as Engine[]).map((k) => ({ value: k, label: ENGINES[k].label }))}
+        />
+        <p className="tiny">
+          {b.fk === 'lottie'
+            ? 'Lottie is written from keyframes, so the engine only matters for the preview stills.'
+            : ENGINES[state.engine].why}
+        </p>
       </Row>
 
       <Row label="Size cap">

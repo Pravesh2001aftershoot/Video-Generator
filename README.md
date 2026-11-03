@@ -38,6 +38,17 @@ At 120 BPM a beat is 15 frames at 30 fps and 25 frames at 50 fps, so every beat 
 
 The product decides the theme tokens. Galleries uses light and the Core app uses dark. If the page loads in the other theme, Claude switches it before capture, so the sampled colours match.
 
+### Render engine
+
+**HyperFrames** is the default. It's HeyGen's open-source HTML-to-video renderer (Apache 2.0, free for commercial use). Projects like Core don't need it in their dependencies, because the prompt sets it up on its own:
+
+- It checks for Node 22+, ffmpeg, and a `motion/package.json` with `hyperframes` pinned to an exact version. It installs only what is missing.
+- Everything is installed in `motion/`, which goes in `.git/info/exclude`. The product's `package.json`, lockfile and CI stay untouched.
+- It runs `npx hyperframes doctor` and a 1-second draft render first. If either fails, Claude stops and reports the error instead of carrying on.
+- The scene is a HyperFrames composition driven by `registerFrameSource` calling the same pure `seek(t)`. Motion blur comes from `data-motion-blur`. MP4, WEBM and MOV render natively. GIF and WEBP render a PNG sequence that ffmpeg then encodes.
+
+**Playwright + ffmpeg** is still available for a setup with no framework at all.
+
 ## Structure
 
 - `src/lib/brief.ts`: the brief state, constants, and `buildBrief()`, a pure function that produces the prompt and derived values (canvas size, fps suggestion, bitrate)
