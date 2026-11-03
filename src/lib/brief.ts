@@ -8,6 +8,8 @@ export type FpsPick = 'auto' | '30' | '50';
 
 export interface BriefState {
   videoType: VideoType;
+  /** optional storyline or steps the video should follow, one per line */
+  storyline: string;
   /** id of a built-in style example used as the reference, or '' */
   refExample: string;
   refPath: string;
@@ -39,6 +41,7 @@ export interface RefVideo {
 
 export const DEFAULT_STATE: BriefState = {
   videoType: 'whats-new',
+  storyline: '',
   refExample: 'whats-new-photon',
   refPath: '',
   url: '',
@@ -291,6 +294,19 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
     );
   L.push('</style>', '');
 
+  const story = s.storyline
+    .split('\n')
+    .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+  if (story.length) {
+    L.push('<storyline>');
+    L.push(
+      'Follow this storyline. Each line is a beat of the story, in order. Build the states around it: keep the order, show every step, and fill the gaps between steps with transitions through real components. Use the real UI and copy for each step; if a step needs a screen, feature or copy the site does not have, flag it instead of inventing it.',
+    );
+    story.forEach((line, i) => L.push(`${i + 1}. ${line}`));
+    L.push('</storyline>', '');
+  }
+
   L.push('<process>');
   let n = 1;
   if (repo)
@@ -308,7 +324,7 @@ export function buildBrief(s: BriefState, ref: RefVideo | null): Brief {
   );
   const stateCount = dur <= 10 ? '5 to 7' : dur <= 20 ? '8 to 12' : '12 to 18';
   L.push(
-    `${n++}. Plan. Pick ${stateCount} components that show what the product does, ordered so each one grows out of the one before. For every change, name a shared element that carries across (a progress bar becomes a volume track, a toggle knob becomes a tab indicator). Put the states on a 120 BPM grid, a beat every 0.5 seconds: ${bars} bars of 4 beats make ${dur} seconds (${beats} beats). At ${fps} fps a beat is exactly ${fps / 2} frames, so every beat lands on a whole frame. Something happens on every beat, with a 4 to 6 second hold on anything with a paragraph or a quote. Save the plan as states.md.${plan ? ' Stop here and show me states.md; wait for my go before building.' : ''}`,
+    `${n++}. Plan. ${story.length ? `Follow the storyline above: map each of its ${story.length} steps to one or more of ${stateCount} states, in that order, using the real components that show each step, so each one grows out of the one before.` : `Pick ${stateCount} components that show what the product does, ordered so each one grows out of the one before.`} For every change, name a shared element that carries across (a progress bar becomes a volume track, a toggle knob becomes a tab indicator). Put the states on a 120 BPM grid, a beat every 0.5 seconds: ${bars} bars of 4 beats make ${dur} seconds (${beats} beats). At ${fps} fps a beat is exactly ${fps / 2} frames, so every beat lands on a whole frame. Something happens on every beat, with a 4 to 6 second hold on anything with a paragraph or a quote. Save the plan as states.md.${plan ? ' Stop here and show me states.md; wait for my go before building.' : ''}`,
   );
   if (hasMusic) {
     L.push(

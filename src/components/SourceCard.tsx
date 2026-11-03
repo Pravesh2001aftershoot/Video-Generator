@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowUpRight, Globe, Link, TerminalWindow, VideoCamera } from '@phosphor-icons/react';
+import { ArrowUpRight, Globe, Link, ListNumbers, TerminalWindow, VideoCamera } from '@phosphor-icons/react';
 import { BriefState, Product, RefVideo, RunIn, fmtBytes } from '../lib/brief';
 import { Card, RadioChips, Row } from './ui';
 import { ExampleGallery } from './ExampleGallery';
@@ -156,6 +156,20 @@ export function SourceCard({ state, set, update, refVideo, onRefVideo }: Props) 
             </span>
             <ArrowUpRight className="i go" />
           </a>
+        </div>
+      </Row>
+
+      <Row label="Storyline">
+        <p className="tiny">Optional. The story or steps the video should follow, one per line, in order. Leave empty to let Claude pick.</p>
+        <div className="field area">
+          <ListNumbers className="i" />
+          <textarea
+            rows={4}
+            aria-label="Storyline or steps (optional)"
+            placeholder={'e.g.\nOpen a gallery of wedding photos\nAI culls the set down to the best shots\nApply a preset with one click\nShare the finished gallery with the client'}
+            value={state.storyline}
+            onChange={(e) => set('storyline', e.target.value)}
+          />
         </div>
       </Row>
 
